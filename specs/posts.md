@@ -29,6 +29,7 @@ of Markdown files into posts that every page, feed and the MCP server can share.
 | POSTS-16 | If a post has `draft: true`, then the system shall not list it or find it by slug. |
 | POSTS-17 | If a post's date is in the future, then the system shall hide it until that moment, with no restart and no reload. |
 | POSTS-18 | If `draft` is set to anything but `true` or `false`, then the system shall skip the file and log a warning that names it. |
+| POSTS-19 | When a post has no `summary` and no `description`, and its body holds a `<!-- truncate -->` comment, the system shall use the text before that comment, cut at a word to at most 200 characters, as its summary. |
 
 ## Frontmatter
 

@@ -206,6 +206,13 @@ public final class PostParser {
 		}
 		String lede = summary != null ? summary.strip() : "";
 
+		// With no written summary, the text before a <!-- truncate --> comment stands in, and with
+		// no comment, the first paragraph does.
+		String inferred = rendered.beforeTruncate();
+		if (inferred.isEmpty()) {
+			inferred = rendered.firstParagraph();
+		}
+
 		// Old paths for the post. A dated name that gave the slug keeps its old address too.
 		List<String> aliases = new ArrayList<>();
 		for (String key : List.of("aliases", "redirect_from")) {
@@ -222,7 +229,7 @@ public final class PostParser {
 		String author = frontmatter.raw("author") instanceof String name ? name.strip() : "";
 
 		return new Post(slug, title.strip(), date, tags(frontmatter.list("tags")),
-				!lede.isEmpty() ? lede : cut(rendered.firstParagraph()), rendered.html(),
+				lede.isEmpty() ? cut(inferred) : lede, rendered.html(),
 				rendered.headings(), Math.max(1, (rendered.words() + WORDS_PER_MINUTE - 1) / WORDS_PER_MINUTE), draft,
 				file.path(), image, orEmpty(frontmatter.text("picture-alt")), orEmpty(frontmatter.text("caption")), lede,
 				modified, canonical, aliases, author, imageSize == null ? 0 : imageSize.width(),

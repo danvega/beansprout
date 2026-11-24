@@ -42,6 +42,11 @@ final class MarkdownRenderer {
 	 */
 	private static final Pattern COMMENT = Pattern.compile("(?s)<!--(?:>|->|.*?(?:--!?>|$))");
 
+	/**
+	 * The comment that ends a summary: {@code <!-- truncate -->}.
+	 */
+	private static final Pattern TRUNCATE = Pattern.compile("<!--\\s*truncate\\s*-->");
+
 	private final Parser parser = Parser.builder().extensions(EXTENSIONS).build();
 
 	private final CodeHighlighter highlighter;
@@ -52,7 +57,7 @@ final class MarkdownRenderer {
 
 	private final TextContentRenderer text = TextContentRenderer.builder().extensions(EXTENSIONS).build();
 
-	record Rendered(String html, List<Heading> headings, String firstParagraph, int words) {
+	record Rendered(String html, List<Heading> headings, String firstParagraph, String beforeTruncate, int words) {
 	}
 
 	Rendered render(String markdown) {
@@ -131,7 +136,7 @@ final class MarkdownRenderer {
 		// The context path first: a bundle's images get the bundle's address, which already holds it.
 		body = withRoot(body, root);
 		return new Rendered(images == null ? body : inFolder(body, images), headings, firstParagraph(document),
-				countWords(text.render(document)));
+				beforeTruncate(document), countWords(text.render(document)));
 	}
 
 	/** The tags whose address gets the context path, each with the attribute that holds it. */
@@ -364,9 +369,55 @@ final class MarkdownRenderer {
 		return "";
 	}
 
+	/**
+	 * The plain text before the first {@code <!-- truncate -->} comment, or empty when there is none.
+	 * One inside code, or written as code, does not count.
+	 */
+	private static String beforeTruncate(Node document) {
+		StringBuilder out = new StringBuilder();
+		boolean truncated = false;
+		for (Node node = document.getFirstChild(); node != null && !truncated; node = node.getNext()) {
+			if (endsSummary(node)) {
+				truncated = true;
+			}
+			else if (node instanceof Paragraph paragraph) {
+				// The comment can sit inside a paragraph, between its words.
+				for (Node inline = paragraph.getFirstChild(); inline != null; inline = inline.getNext()) {
+					if (endsSummary(inline)) {
+						truncated = true;
+						break;
+					}
+					plainText(inline, out);
+				}
+				out.append(' ');
+			}
+			else {
+				plainText(node, out);
+				out.append(' ');
+			}
+		}
+		return truncated ? out.toString().replaceAll("\\s+", " ").strip() : "";
+	}
+
+	/** True when raw HTML is the comment that ends a summary: {@code <!-- truncate -->}. */
+	private static boolean endsSummary(Node node) {
+		if (node instanceof HtmlBlock block) {
+			return TRUNCATE.matcher(block.getLiteral()).find();
+		}
+		if (node instanceof HtmlInline inline) {
+			return TRUNCATE.matcher(inline.getLiteral()).find();
+		}
+		return false;
+	}
+
 	/** The text a reader sees: literal text and inline code, with line breaks as spaces. */
 	private static String plain(Node node) {
 		StringBuilder out = new StringBuilder();
+		plainText(node, out);
+		return out.toString().strip();
+	}
+
+	private static void plainText(Node node, StringBuilder out) {
 		node.accept(new AbstractVisitor() {
 			@Override
 			public void visit(Text text) {
@@ -388,7 +439,6 @@ final class MarkdownRenderer {
 				out.append(' ');
 			}
 		});
-		return out.toString().strip();
 	}
 
 	private static String unique(String base, Map<String, Integer> used, Set<String> taken) {

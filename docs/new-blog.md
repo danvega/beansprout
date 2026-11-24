@@ -130,6 +130,9 @@ Open `http://localhost:8080/blog`.
 | A page only people with the link find | `unlisted: true` |
 | To publish it later | a date in the future, like `date: 2026-12-01T09:00` |
 
+No `summary`? Write the post's opening, then put `<!-- truncate -->` on its own line: the text before
+the comment is the summary. Without the comment, the first paragraph is.
+
 ## Posts with pictures
 
 A post can be a folder instead of a file. Put `index.md` in a folder, and put the post's pictures
